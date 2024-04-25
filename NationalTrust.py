@@ -36,10 +36,15 @@ def style_function(feature):
         'fillOpacity': 0.0   # Set the fill opacity to 0 (transparent)
     }
 
+def style_function_nt_sites(feature):
+    return {
+        'color': 'yellow',  # Set the boundary color to purple
+    }
+
 # Add the Earth Engine function to folium
 folium.Map.add_ee_layer = add_ee_layer
 
-folium.GeoJson(NT_sites.to_json()).add_to(m)
+folium.GeoJson(NT_sites.to_json(), style_function=style_function_nt_sites).add_to(m)
 folium.GeoJson(england_sites.to_json(), style_function=style_function).add_to(m)
 folium.GeoJson(wales_sites.to_json(), style_function=style_function).add_to(m)
 #folium.LayerControl().add_to(m)
@@ -79,36 +84,37 @@ def add_forest_gain_loss(geometry_str, name):
         maxPixels=1e9
     )
 
-    # Convert forest cover and loss areas to hectares
-    area2000Hectares = ee.Number(treeCoverArea2000.get('treecover2000')).divide(1e4)
-    totalLossAreaHectares = ee.Number(totalLossArea.get('loss')).divide(1e4)
-    percentageLoss = totalLossAreaHectares.divide(area2000Hectares).multiply(100)
+    # Convert forest cover and loss areas to kilo hectares
+    area2000KiloHectares = ee.Number(treeCoverArea2000.get('treecover2000')).divide(1e7)    
+    totalLossAreaKiloHectares = ee.Number(totalLossArea.get('loss')).divide(1e7)
+    percentageLoss = (totalLossAreaKiloHectares.round()).divide(area2000KiloHectares.round()).multiply(100)
 
-    m.add_ee_layer(treeCover.updateMask(treeCover),
-                  {'palette': '000000, 00FF00', 'max': 100}, 'Forest Cover')
+    if (percentageLoss.getInfo() > 10.0):
+        m.add_ee_layer(treeCover.updateMask(treeCover),
+                    {'palette': '000000, 00FF00', 'max': 100}, 'Forest Cover')
 
-    m.add_ee_layer(lossImage.updateMask(lossImage),
-                  {'palette': 'FF0000'}, 'Loss')
+        m.add_ee_layer(lossImage.updateMask(lossImage),
+                    {'palette': 'FF0000'}, 'Loss')
 
-    m.add_ee_layer(gainImage.updateMask(gainImage),
-                  {'palette': '0000FF'}, 'Gain')
-    
-    m.add_ee_layer(gainAndLoss.updateMask(gainAndLoss),
-                  {'palette': 'yellow'}, 'Gain and Loss')
+        m.add_ee_layer(gainImage.updateMask(gainImage),
+                    {'palette': '0000FF'}, 'Gain')
+        
+        #m.add_ee_layer(gainAndLoss.updateMask(gainAndLoss),
+                   # {'palette': 'yellow'}, 'Gain and Loss')
 
-    # Prepare the HTML popup content
-    popup_html = f"""
-        <h4>Forest Cover Statistics for {name}</h4>
-        <ul>
-            <li>Total Tree Cover in 2000: {area2000Hectares.getInfo():.2f} KHa</li>
-            <li>Total Forest Loss Since 2000: {totalLossAreaHectares.getInfo():.2f} KHa</li>
-            <li>Percentage Forest Loss Since 2000: {percentageLoss.getInfo():.2f}%</li>
-        </ul>
-    """
-    # Create a Folium popup
-    popup = folium.Popup(html=popup_html, max_width=500)
-    centroid_coords = geometry.centroid().coordinates().reverse().getInfo()
-    folium.Marker(location=centroid_coords, popup=popup).add_to(m)
+        # Prepare the HTML popup content
+        popup_html = f"""
+            <h4>Forest Cover Statistics for {name}</h4>
+            <ul>
+                <li>Total Tree Cover in 2000: {area2000KiloHectares.getInfo():.2f} KHa</li>
+                <li>Total Forest Loss Since 2000: {totalLossAreaKiloHectares.getInfo():.2f} KHa</li>
+                <li>Percentage Forest Loss Since 2000: {percentageLoss.getInfo():.2f}%</li>
+            </ul>
+        """
+        # Create a Folium popup
+        popup = folium.Popup(html=popup_html, max_width=500)
+        centroid_coords = geometry.centroid().coordinates().reverse().getInfo()
+        folium.Marker(location=centroid_coords, popup=popup).add_to(m)
 
 def get_feature_collection(gdf):
     features = []
@@ -132,16 +138,18 @@ def process_feature(feature):
   print('\nProcessing:', name)
   add_forest_gain_loss(geom, name)
 
+
 def process_countries(region):
   feature_coll = get_feature_collection(region)
   for feature in feature_coll['features']:
     process_feature(feature=feature)
     save_map()
-
+    
 def save_map():
    m.save('NT_forest_loss.html')
 
-#feature_coll = get_feature_collection(england_sites)
+feature_coll = get_feature_collection(england_sites)
+#process_feature(feature_coll['features'][1])
 process_countries(england_sites)
 process_countries(wales_sites)
 save_map()
