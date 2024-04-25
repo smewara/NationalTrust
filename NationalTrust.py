@@ -41,15 +41,6 @@ def style_function_nt_sites(feature):
         'color': 'yellow',  # Set the boundary color to purple
     }
 
-# Add the Earth Engine function to folium
-folium.Map.add_ee_layer = add_ee_layer
-
-folium.GeoJson(NT_sites.to_json(), style_function=style_function_nt_sites).add_to(m)
-folium.GeoJson(england_sites.to_json(), style_function=style_function).add_to(m)
-folium.GeoJson(wales_sites.to_json(), style_function=style_function).add_to(m)
-#folium.LayerControl().add_to(m)
-m
-
 def add_forest_gain_loss(geometry_str, name):
     # Convert the list of geometries to an Earth Engine MultiPolygon
     geometry = ee.Geometry(geometry_str)
@@ -148,11 +139,19 @@ def process_countries(region):
 def save_map():
    m.save('NT_forest_loss.html')
 
-feature_coll = get_feature_collection(england_sites)
-#process_feature(feature_coll['features'][1])
-process_countries(england_sites)
-process_countries(wales_sites)
-save_map()
+def main():
+    # Add the Earth Engine function to folium
+    folium.Map.add_ee_layer = add_ee_layer
+    folium.GeoJson(NT_sites.to_json(), style_function=style_function_nt_sites).add_to(m)
+    folium.GeoJson(england_sites.to_json(), style_function=style_function).add_to(m)
+    folium.GeoJson(wales_sites.to_json(), style_function=style_function).add_to(m)
 
-display(m)
+    feature_coll = get_feature_collection(england_sites)
+    #process_feature(feature_coll['features'][1])
+    process_countries(england_sites)
+    process_countries(wales_sites)
+    save_map()
+
+if __name__ == '__main__':
+   main()
 
